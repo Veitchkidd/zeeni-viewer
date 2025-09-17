@@ -35,8 +35,14 @@ body{
   width: min(96vw, 1400px);          /* flexible width */
   height: calc(100vh - 180px);       /* fit height */
   background: transparent;
-  touch-action: manipulation;        /* better touch drag */
+  touch-action: manipulation;        /* better touch drag on mobile */
+  pointer-events: auto;
+  position: relative;
 }
+
+/* ensure nothing blocks pointer events above the book */
+#watermark{ pointer-events: none; }
+#loading{ pointer-events: all; }
 
 /* ====== Top Toolbar ====== */
 .toolbar{
@@ -47,21 +53,21 @@ body{
   border:1px solid var(--panel-border);
   box-shadow:0 8px 24px rgba(0,0,0,.25);
 }
-.toolbar .btn{
+.toolbar .btn, .toolbar a.btn{
   appearance:none; border:1px solid var(--panel-border);
-  background:#1b1e27; color:var(--text);
+  background:#1b1e27; color:var(--text); text-decoration:none;
   padding:8px 10px; border-radius:10px; cursor:pointer;
   transition:transform .08s ease, background .15s ease, border-color .15s ease;
 }
-.toolbar .btn:hover{ background:#222634; border-color:rgba(255,255,255,.15)}
-.toolbar .btn:active{ transform:scale(.98) }
+.toolbar .btn:hover, .toolbar a.btn:hover{ background:#222634; border-color:rgba(255,255,255,.15)}
+.toolbar .btn:active, .toolbar a.btn:active{ transform:scale(.98) }
 .toolbar .split{ width:1px; height:28px; background:var(--panel-border); margin:0 4px}
 
 /* ====== Bottom Chrome ====== */
 .chrome{
   position:fixed; z-index:5; left:50%; bottom:12px; transform:translateX(-50%);
   width:min(1000px, 92vw);
-  display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:10px;
+  display:grid; grid-template-columns:1fr auto auto auto; align-items:center; gap:10px;
   padding:10px 12px; border-radius:12px;
   background:var(--panel); border:1px solid var(--panel-border);
   backdrop-filter:blur(8px);
@@ -79,6 +85,7 @@ body{
 .counter{ color:var(--muted); font-variant-numeric:tabular-nums }
 .zoom{ display:flex; gap:8px; }
 .zoom .btn{ padding:8px 12px }
+#renderProg{ color:var(--muted); font-size:12px }
 
 /* ====== Thumbnails Panel ====== */
 .thumbs{
@@ -107,7 +114,7 @@ body{
 
 /* ====== Watermark ====== */
 #watermark{
-  position:fixed; inset:0; z-index:2; pointer-events:none;
+  position:fixed; inset:0; z-index:2;
   display:grid; place-items:center; text-transform:uppercase;
   color:rgba(255,255,255,.25); font-weight:700; letter-spacing:.08em;
   background-image:
@@ -132,5 +139,5 @@ body{
   .viewer-wrap{ padding:64px 8px 96px }
   #book{ width:96vw; max-height:calc(100vh - 160px) }
   .thumbs{ display:none }
-  .chrome{ grid-template-columns:1fr auto; }
+  .chrome{ grid-template-columns:1fr auto auto; }
 }
