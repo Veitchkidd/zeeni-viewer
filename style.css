@@ -35,10 +35,7 @@ body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-s
 .fit select{background:#1b2030;border:1px solid var(--panel-b);color:var(--text);padding:8px 10px;border-radius:10px}
 
 /* subtle page edges */
-.page {
-  position: relative;
-  background: #fff;
-}
+.page{position:relative;background:#fff}
 .page::before,.page::after{content:"";position:absolute;top:0;bottom:0;width:16px;pointer-events:none}
 .page::before{left:0;background:linear-gradient(90deg,rgba(0,0,0,.15),transparent)}
 .page::after{right:0;background:linear-gradient(270deg,rgba(0,0,0,.15),transparent)}
