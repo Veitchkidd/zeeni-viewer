@@ -8,7 +8,6 @@ body{background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,
 #app{height:100%;position:relative}
 #bg{position:fixed;inset:0;z-index:0;background:#101119;background-size:cover;background-position:center}
 .viewer-wrap{position:relative;z-index:1;height:100%;padding:80px 16px 86px;display:grid;place-items:center}
-
 #book{
   width:min(96vw,1400px);
   height:calc(100vh - 180px);
