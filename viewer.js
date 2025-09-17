@@ -1,9 +1,9 @@
 /**
- * Zeeni Viewer – sandbox-safe, sharp, corner-drag
+ * Zeeni Viewer – sandbox-safe, robust fetch, sharp output, corner-drag
  * Query:
  *   pdf=URL or /api/proxy?url=ENCODED
  *   bg=solid:#0f0f13 | gradient:linear,#7A2CF0,#00C7B7 | image:https%3A%2F%2F...
- *   wm=...       (optional)
+ *   wm=...  (optional)
  *   mode=auto|single|double
  *   res=auto|high|retina
  */
@@ -43,15 +43,12 @@
   applyBackground(bgParam, bgEl);
   if (wm) { wmEl.textContent = decodeURIComponent(wm); wmEl.style.pointerEvents = "none"; }
 
-  // --- Worker fallback (Base44 sandbox safe) ---
+  // --- Worker fallback (sandbox safe) ---
   try {
-    const test = new Worker(pdfjsLib.GlobalWorkerOptions.workerSrc, { type: "classic" });
-    test.terminate();
-  } catch {
-    pdfjsLib.disableWorker = true; // slower but reliable in sandboxed iframes
-  }
+    const t = new Worker(pdfjsLib.GlobalWorkerOptions.workerSrc, { type: "classic" });
+    t.terminate();
+  } catch { pdfjsLib.disableWorker = true; }
 
-  // Flip engine guard
   if (!window.St || !St.PageFlip) {
     loadingEl.textContent = "Viewer error: flip engine failed to load.";
     return;
@@ -61,7 +58,7 @@
 
   (async function init(){
     try {
-      // Open/Download links
+      // Build Open/Download links
       const raw = qs.get("pdf");
       const originalPdfUrl = decodeURIComponent((raw || "").replace(/^\/api\/proxy\?url=/, ""));
       const proxyPdfUrl = raw.startsWith("/api/proxy") ? raw : `/api/proxy?url=${encodeURIComponent(raw)}`;
@@ -69,8 +66,10 @@
       btnDl.href   = `${proxyPdfUrl}${proxyPdfUrl.includes("?") ? "&" : "?"}dl=1`;
       btnDl.setAttribute("download","");
 
-      // Load PDF
-      const pdf = await pdfjsLib.getDocument({ url: pdfParam }).promise;
+      // ✅ Robust: fetch the PDF ourselves (with timeout) then pass binary data to PDF.js
+      const pdfData = await fetchPdfBinary(pdfParam, 25000); // 25s timeout
+      const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+
       totalPages = pdf.numPages; totEl.textContent = totalPages; scrub.max = String(totalPages);
 
       // First page → size + layout
@@ -148,6 +147,18 @@
       loadingEl.textContent = `Viewer error: ${err.message || err}`;
     }
   })();
+
+  /* ---------- robust fetch ---------- */
+  async function fetchPdfBinary(url, timeoutMs=20000){
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), timeoutMs);
+    try {
+      const r = await fetch(url, { signal: ctrl.signal, credentials: "omit" });
+      if (!r.ok) throw new Error(`PDF fetch ${r.status} ${r.statusText}`);
+      const ab = await r.arrayBuffer();
+      return new Uint8Array(ab);
+    } finally { clearTimeout(t); }
+  }
 
   /* ---------- rendering ---------- */
   async function renderPage(pdf, pageNumber, tier="auto", targetCssWidth){
@@ -239,10 +250,10 @@
   function setZoom(z){ zoom = Number(z.toFixed(2)); bookEl.style.transformOrigin="center center"; bookEl.style.transform=`scale(${zoom})`; }
   function toggleFullscreen(){ const el=document.documentElement; if(!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); }
   function buildThumbs(imgs){
-    const panel = byId("thumbs"); panel.innerHTML="";
-    imgs.forEach((src,i)=>{ const d=document.createElement("div"); d.className="thumb"; d.innerHTML=`<img src="${src}" alt="Page ${i+1}">`; d.onclick=()=>pageFlip?.turnToPage(i); panel.appendChild(d); });
+    const panel = document.getElementById("thumbs"); panel.innerHTML="";
+    imgs.forEach((src,i)=>{ const d=document.createElement("div"); d.className="thumb"; d.innerHTML=`<img src="${src}" alt="Page ${i+1}">`; d.onclick=()=>window.pageFlip?.turnToPage(i); panel.appendChild(d); });
   }
   function highlightThumb(n){
-    [...byId("thumbs").querySelectorAll(".thumb")].forEach((el,i)=>el.classList.toggle("active", i===n-1));
+    [...document.getElementById("thumbs").querySelectorAll(".thumb")].forEach((el,i)=>el.classList.toggle("active", i===n-1));
   }
 })();
