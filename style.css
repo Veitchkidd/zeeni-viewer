@@ -13,7 +13,7 @@ body{background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,
   width:min(96vw,1400px);
   height:calc(100vh - 180px);
   background:transparent;
-  touch-action:manipulation;     /* finger drag */
+  touch-action:manipulation;
   pointer-events:auto;
   position:relative;
 }
