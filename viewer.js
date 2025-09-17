@@ -2,18 +2,10 @@
  * Zeeni Viewer (Image-only, Manifest-driven)
  * Query:
  *   manifest=PUBLIC_URL_TO_JSON   (preferred)
- *   or images=url1,url2,...       (fallback)
+ *   or images=url1,url2,...
  *   bg=solid:#0f0f13 | gradient:linear,#7A2CF0,#00C7B7 | image:https%3A%2F%2F...
  *   mode=auto|single|double
- *   wm=... (optional watermark text)
- *
- * Manifest shape:
- * {
- *   "title": "My Doc",
- *   "originalPdfUrl": "https://.../flipbooks/{slug}/original.pdf",
- *   "images": ["https://.../page-1.jpg", "https://.../page-2.jpg"],
- *   "updatedAt": "2025-09-17T10:00:00.000Z"
- * }
+ *   wm=... (optional)
  */
 (function () {
   const qs = new URLSearchParams(location.search);
@@ -65,10 +57,8 @@
     } else {
       throw new Error("Missing ?manifest= or ?images= param");
     }
-
     if (!images.length) throw new Error("No images found");
 
-    // Set toolbar links
     if (originalPdfUrl) {
       btnOpen.href = originalPdfUrl;
       btnDl.href   = originalPdfUrl;
@@ -78,7 +68,6 @@
       btnDl.style.display = "none";
     }
 
-    // Load first to get aspect
     const first = await loadImage(images[0]);
     const srcW = first.naturalWidth, srcH = first.naturalHeight;
     const isLandscape = srcW >= srcH * 1.05;
@@ -89,23 +78,20 @@
 
     sizeBookToViewport(srcW, srcH);
 
-    // Quick boot: show placeholders immediately
     const INIT = Math.min(images.length, isDesktop ? 4 : 2);
     const initial = images.slice(0, INIT);
     const placeholders = Array.from({length: images.length - INIT}, () => images[0]);
     const all = initial.concat(placeholders);
 
-    // Init StPageFlip
     const pf = new St.PageFlip(bookEl, {
       width: srcW, height: srcH, showCover: !isLandscape, usePortrait,
       size: "stretch", maxShadowOpacity: 0.45, flippingTime: 700,
       drawShadow: true, autoSize: true,
       mobileScrollSupport: true, clickEventForward: true, showPageCorners: true
     });
-    window.pageFlip = pf; // optional debug
+    window.pageFlip = pf;
     pf.loadFromImages(all);
 
-    // UI wire
     buildThumbs(all);
     curEl.textContent = "1";
     totEl.textContent = String(images.length);
@@ -129,7 +115,6 @@
     window.addEventListener("keydown",(ev)=>{ if(ev.key==="ArrowLeft")pf.flipPrev(); if(ev.key==="ArrowRight")pf.flipNext(); });
     window.addEventListener("resize", ()=> sizeBookToViewport(srcW, srcH));
 
-    // Progressive load & swap in real images
     for (let i = INIT; i < images.length; i++) {
       const im = await loadImage(images[i]);
       pf.updatePage(i, im);
@@ -139,7 +124,6 @@
     }
   }
 
-  /* helpers */
   function ensureDOM(){
     if (document.getElementById("app")) return;
     document.body.innerHTML = `
@@ -173,15 +157,14 @@
   }
   function byId(id){ return document.getElementById(id); }
   function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
-  function loadImage(url){
-    return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
-  }
+  function loadImage(url){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; }); }
   function sizeBookToViewport(srcW, srcH){
     const maxW = Math.min(window.innerWidth*0.96, 1400);
     const maxH = Math.min(window.innerHeight-180, window.innerHeight*0.9);
     const s = Math.min(maxW/srcW, maxH/srcH);
-    bookEl.style.width  = `${Math.floor(srcW*s)}px`;
-    bookEl.style.height = `${Math.floor(srcH*s)}px`;
+    const el = byId("book");
+    el.style.width  = `${Math.floor(srcW*s)}px`;
+    el.style.height = `${Math.floor(srcH*s)}px`;
   }
   function zoomTo(delta){
     const el = byId("book");
