@@ -5,22 +5,17 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Zeeni Viewer</title>
 
-  <!-- UI -->
+  <!-- StPageFlip (curl flip, no jQuery needed) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/stpageflip@2.0.7/dist/css/pageflip.min.css" />
   <link rel="stylesheet" href="/style.css" />
-
-  <!-- jQuery (required by turn.js) -->
-  <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-
-  <!-- turn.js (page-curl flipping) -->
-  <script src="https://cdn.jsdelivr.net/npm/turn.js@4/turn.min.js"></script>
 
   <!-- PDF.js -->
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script>
-    // Worker can be blocked in sandboxed iframes; enable fallback automatically
     try {
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      // try spawning to verify worker availability (some sandboxes block it)
       const t = new Worker(pdfjsLib.GlobalWorkerOptions.workerSrc, { type: "classic" });
       t.terminate();
     } catch { pdfjsLib.disableWorker = true; }
@@ -40,7 +35,7 @@
       <button id="btn-prev" class="nav-arrow left">‹</button>
 
       <div id="canvas">
-        <div id="book" class="book"></div>
+        <div id="book"></div>
         <div id="loading" class="loading">Loading…</div>
         <div id="error" class="error hide"></div>
       </div>
@@ -70,6 +65,8 @@
     </footer>
   </div>
 
+  <!-- StPageFlip JS -->
+  <script src="https://cdn.jsdelivr.net/npm/stpageflip@2.0.7/dist/js/pageflip.min.js"></script>
   <script src="/viewer.js"></script>
 </body>
 </html>
