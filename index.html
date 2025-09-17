@@ -4,11 +4,72 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Zeeni Viewer</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/stpageflip@2.0.7/dist/css/pageflip.min.css" />
+
+  <!-- UI -->
   <link rel="stylesheet" href="/style.css" />
+
+  <!-- jQuery (required by turn.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+  <!-- turn.js (page-curl flipping) -->
+  <script src="https://cdn.jsdelivr.net/npm/turn.js@4/turn.min.js"></script>
+
+  <!-- PDF.js -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script>
+    // Worker can be blocked in sandboxed iframes; enable fallback automatically
+    try {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      const t = new Worker(pdfjsLib.GlobalWorkerOptions.workerSrc, { type: "classic" });
+      t.terminate();
+    } catch { pdfjsLib.disableWorker = true; }
+  </script>
 </head>
 <body>
-  <script src="https://cdn.jsdelivr.net/npm/stpageflip@2.0.7/dist/js/pageflip.min.js"></script>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">Zeeni</div>
+      <div class="spacer"></div>
+      <a id="btn-open" class="btn" target="_blank" rel="noopener">Open PDF</a>
+      <a id="btn-dl" class="btn">Download</a>
+      <button id="btn-fs" class="btn">Fullscreen</button>
+    </header>
+
+    <main class="stage">
+      <button id="btn-prev" class="nav-arrow left">‹</button>
+
+      <div id="canvas">
+        <div id="book" class="book"></div>
+        <div id="loading" class="loading">Loading…</div>
+        <div id="error" class="error hide"></div>
+      </div>
+
+      <button id="btn-next" class="nav-arrow right">›</button>
+    </main>
+
+    <footer class="chrome">
+      <div class="zoom">
+        <button id="zoom-out" class="btn">−</button>
+        <button id="zoom-in" class="btn">+</button>
+      </div>
+
+      <div class="scrub">
+        <span id="cur">1</span>
+        <input id="range" type="range" min="1" max="1" value="1" step="1">
+        <span id="tot">?</span>
+      </div>
+
+      <div class="fit">
+        <select id="fit">
+          <option value="auto">Auto</option>
+          <option value="width">Fit width</option>
+          <option value="height">Fit height</option>
+        </select>
+      </div>
+    </footer>
+  </div>
+
   <script src="/viewer.js"></script>
 </body>
 </html>
