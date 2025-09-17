@@ -1,4 +1,3 @@
-// Vercel function (or Next.js API route)
 export default async function handler(req, res) {
   const url = req.query.url;
   const dl  = req.query.dl;
