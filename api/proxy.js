@@ -1,4 +1,4 @@
-// CORS-friendly PDF proxy + supports ?dl=1 to force download
+// CORS-friendly PDF proxy + ?dl=1 to force download
 export default async function handler(req, res) {
   const url = req.query.url;
   const dl  = req.query.dl;
