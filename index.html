@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Zeeni Viewer</title>
 
-  <!-- StPageFlip (curl flip, no jQuery needed) -->
+  <!-- StPageFlip CSS (page-curl, no jQuery) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/stpageflip@2.0.7/dist/css/pageflip.min.css" />
+  <!-- App styles -->
   <link rel="stylesheet" href="/style.css" />
 
-  <!-- PDF.js -->
+  <!-- PDF.js (with worker fallback if blocked in sandbox) -->
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script>
     try {
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-      // try spawning to verify worker availability (some sandboxes block it)
       const t = new Worker(pdfjsLib.GlobalWorkerOptions.workerSrc, { type: "classic" });
       t.terminate();
     } catch { pdfjsLib.disableWorker = true; }
@@ -65,7 +65,7 @@
     </footer>
   </div>
 
-  <!-- StPageFlip JS -->
+  <!-- IMPORTANT: load StPageFlip BEFORE viewer.js -->
   <script src="https://cdn.jsdelivr.net/npm/stpageflip@2.0.7/dist/js/pageflip.min.js"></script>
   <script src="/viewer.js"></script>
 </body>
