@@ -32,10 +32,10 @@ body{
   display:grid; place-items:center;
 }
 #book{
-  width:min(92vw, 1280px);
-  height:calc(min(92vw,1280px) * 0.707); /* 16:11ish; corrected by JS after first render */
-  max-height:calc(100vh - 180px);
-  background:transparent;
+  width: min(96vw, 1400px);          /* flexible width */
+  height: calc(100vh - 180px);       /* fit height */
+  background: transparent;
+  touch-action: manipulation;        /* better touch drag */
 }
 
 /* ====== Top Toolbar ====== */
@@ -57,7 +57,7 @@ body{
 .toolbar .btn:active{ transform:scale(.98) }
 .toolbar .split{ width:1px; height:28px; background:var(--panel-border); margin:0 4px}
 
-/* ====== Bottom Chrome (scrubber + zoom like Issuu) ====== */
+/* ====== Bottom Chrome ====== */
 .chrome{
   position:fixed; z-index:5; left:50%; bottom:12px; transform:translateX(-50%);
   width:min(1000px, 92vw);
@@ -66,9 +66,7 @@ body{
   background:var(--panel); border:1px solid var(--panel-border);
   backdrop-filter:blur(8px);
 }
-.scrub{
-  display:flex; align-items:center; gap:10px;
-}
+.scrub{ display:flex; align-items:center; gap:10px; }
 .scrub input[type="range"]{
   -webkit-appearance:none; width:100%; height:6px; border-radius:999px;
   background:linear-gradient(90deg, var(--accent), var(--accent-2));
@@ -79,12 +77,10 @@ body{
   background:#fff; border:2px solid #0d0f16; box-shadow:0 2px 8px rgba(0,0,0,.35);
 }
 .counter{ color:var(--muted); font-variant-numeric:tabular-nums }
-.zoom{
-  display:flex; gap:8px;
-}
+.zoom{ display:flex; gap:8px; }
 .zoom .btn{ padding:8px 12px }
 
-/* ====== Thumbnails Panel (toggleable) ====== */
+/* ====== Thumbnails Panel ====== */
 .thumbs{
   position:fixed; z-index:4; right:12px; top:72px; bottom:92px;
   width:min(220px, 42vw); overflow:auto; padding:10px;
@@ -109,7 +105,7 @@ body{
 }
 .hidden{ display:none }
 
-/* ====== Watermark on free tier ====== */
+/* ====== Watermark ====== */
 #watermark{
   position:fixed; inset:0; z-index:2; pointer-events:none;
   display:grid; place-items:center; text-transform:uppercase;
@@ -118,12 +114,8 @@ body{
     repeating-linear-gradient(45deg, rgba(255,255,255,.06) 0 40px, transparent 40px 80px);
 }
 
-/* ====== Page visual polish (edges, paper feel) ====== */
-/* Works with StPageFlip images inside #book */
-#book .page{
-  position:relative;
-  background: #fafafc;
-}
+/* ====== Page visual polish ====== */
+#book .page{ position:relative; background:#fafafc; }
 #book .page::before, #book .page::after{
   content:""; position:absolute; top:0; bottom:0; width:16px; pointer-events:none;
 }
@@ -135,10 +127,10 @@ body{
 :fullscreen .chrome,
 :fullscreen .thumbs{ background:rgba(0,0,0,.35) }
 
-/* ====== Responsive tweaks ====== */
+/* ====== Responsive ====== */
 @media (max-width: 1024px){
   .viewer-wrap{ padding:64px 8px 96px }
   #book{ width:96vw; max-height:calc(100vh - 160px) }
-  .thumbs{ display:none }              /* hide thumbs on small screens */
+  .thumbs{ display:none }
   .chrome{ grid-template-columns:1fr auto; }
 }
