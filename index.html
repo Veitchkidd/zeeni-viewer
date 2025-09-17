@@ -7,20 +7,23 @@
 
   <!-- PageFlip CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/css/page-flip.min.css">
-  <!-- Your styles -->
+  <!-- App styles -->
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <!-- JS will inject the viewer UI -->
+  <!-- JS dynamically injects the whole UI if not present -->
+
   <!-- PDF.js (core + worker) -->
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
   </script>
-  <!-- PageFlip -->
+
+  <!-- PageFlip (Canvas flip animation) -->
   <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
-  <!-- Your viewer logic -->
+
+  <!-- Viewer logic -->
   <script src="/viewer.js"></script>
 </body>
 </html>
