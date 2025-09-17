@@ -1,202 +1,151 @@
-/**
- * Zeeni Viewer (Image-only, Manifest-driven)
- * Query:
- *   manifest=PUBLIC_URL_TO_JSON   (preferred)
- *   or images=url1,url2,...
- *   bg=solid:#0f0f13 | gradient:linear,#7A2CF0,#00C7B7 | image:https%3A%2F%2F...
- *   mode=auto|single|double
- *   wm=... (optional)
- */
 (function () {
-  const qs = new URLSearchParams(location.search);
-  const manifestUrl = qs.get("manifest");
-  const imagesParam = qs.get("images");
-  const bgParam     = qs.get("bg") || "solid:#0f0f13";
-  const wm          = qs.get("wm");
-  const forcedMode  = (qs.get("mode") || "auto").toLowerCase();
+  const qs   = new URLSearchParams(location.search);
+  const pdfQ = qs.get("pdf");
+  if (!pdfQ) {
+    document.getElementById("loading").textContent = "Missing ?pdf= URL";
+    return;
+  }
 
-  ensureDOM();
+  const pdfUrl = pdfQ.startsWith("/api/proxy") ? pdfQ : `/api/proxy?url=${encodeURIComponent(pdfQ)}`;
 
-  const bgEl       = byId("bg");
-  const wmEl       = byId("watermark");
-  const bookEl     = byId("book");
-  const loadingEl  = byId("loading");
-  const thumbs     = byId("thumbs");
-  const scrub      = byId("scrub");
-  const curEl      = byId("cur");
-  const totEl      = byId("tot");
-  const btnPrev    = byId("btn-prev");
-  const btnNext    = byId("btn-next");
-  const btnThumbs  = byId("btn-thumbs");
-  const btnFS      = byId("btn-fs");
-  const btnOpen    = byId("btn-open");
-  const btnDl      = byId("btn-dl");
-  const btnZoomIn  = byId("zoom-in");
-  const btnZoomOut = byId("zoom-out");
+  // Toolbar links (also expose original URL if provided)
+  const rawOriginal = decodeURIComponent(pdfQ.replace(/^\/api\/proxy\?url=/, ""));
+  const openHref = rawOriginal || pdfUrl;
+  document.getElementById("btn-open").href = openHref;
+  const dl = document.getElementById("btn-dl");
+  dl.href = `${pdfUrl}${pdfUrl.includes("?") ? "&" : "?"}dl=1`;
+  dl.setAttribute("download", "");
 
-  applyBackground(bgParam, bgEl);
-  if (wm) { wmEl.textContent = decodeURIComponent(wm); wmEl.style.pointerEvents = "none"; }
+  const bookEl   = $("#book");
+  const loading  = document.getElementById("loading");
+  const errorBox = document.getElementById("error");
+  const rangeEl  = document.getElementById("range");
+  const curEl    = document.getElementById("cur");
+  const totEl    = document.getElementById("tot");
+  const fitSel   = document.getElementById("fit");
 
-  init().catch(err => {
-    console.error(err);
-    loadingEl.textContent = `Viewer error: ${err.message || err}`;
-  });
+  let pdfDoc = null;
+  let pageCount = 0;
+  let zoom = 1;
 
-  async function init(){
-    let title = "Flipbook", originalPdfUrl = "", images = [];
+  // Sizing helpers
+  function sizeBook(){
+    const fit = fitSel.value;
+    const canvas = document.getElementById("canvas");
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    // Turn.js uses a fixed size; we’ll base it on the first page’s aspect
+    const baseW = W, baseH = H;
+    bookEl.width(baseW).height(baseH);
+    if (bookEl.data("turn")) bookEl.turn("size", baseW, baseH);
+  }
 
-    if (manifestUrl) {
-      const res = await fetch(manifestUrl, { credentials: "omit" });
-      if (!res.ok) throw new Error(`Manifest ${res.status}`);
-      const m = await res.json();
-      title = m.title || title;
-      originalPdfUrl = m.originalPdfUrl || originalPdfUrl;
-      images = Array.isArray(m.images) ? m.images : [];
-    } else if (imagesParam) {
-      images = imagesParam.split(",").map(s => decodeURIComponent(s.trim())).filter(Boolean);
-    } else {
-      throw new Error("Missing ?manifest= or ?images= param");
-    }
-    if (!images.length) throw new Error("No images found");
+  fitSel.addEventListener("change", () => { sizeBook(); });
+  window.addEventListener("resize", sizeBook);
 
-    if (originalPdfUrl) {
-      btnOpen.href = originalPdfUrl;
-      btnDl.href   = originalPdfUrl;
-      btnDl.setAttribute("download", "");
-    } else {
-      btnOpen.style.display = "none";
-      btnDl.style.display = "none";
-    }
+  // Controls
+  $("#btn-prev").on("click", () => bookEl.turn("previous"));
+  $("#btn-next").on("click", () => bookEl.turn("next"));
+  document.getElementById("zoom-in").onclick  = () => setZoom( Math.min(2, zoom + 0.15) );
+  document.getElementById("zoom-out").onclick = () => setZoom( Math.max(1, zoom - 0.15) );
+  document.getElementById("btn-fs").onclick   = () => toggleFullscreen();
+  rangeEl.addEventListener("input", (e) => bookEl.turn("page", Number(e.target.value)));
 
-    const first = await loadImage(images[0]);
-    const srcW = first.naturalWidth, srcH = first.naturalHeight;
-    const isLandscape = srcW >= srcH * 1.05;
-    const isDesktop   = window.innerWidth >= 1024;
-    const usePortrait = forcedMode === "single" ? true :
-                        forcedMode === "double" ? false :
-                        isLandscape || !isDesktop;
+  function setZoom(z){
+    zoom = Number(z.toFixed(2));
+    const canvas = document.getElementById("canvas");
+    canvas.style.transformOrigin = "center center";
+    canvas.style.transform = `scale(${zoom})`;
+  }
+  function toggleFullscreen(){
+    const el = document.documentElement;
+    if (!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.();
+  }
 
-    sizeBookToViewport(srcW, srcH);
+  // Render a page to dataURL (progressive; scale chosen to fill half or full depending on spread)
+  async function renderPageToUrl(pdf, n, targetCssWidth){
+    try {
+      const page = await pdf.getPage(n);
+      const vp1 = page.getViewport({ scale: 1 });
+      // Render around 1600px wide for a single page for good sharpness
+      const cssW = Math.max(900, Math.min(1600, targetCssWidth || 1200));
+      const scale = cssW / vp1.width;
+      const viewport = page.getViewport({ scale });
 
-    const INIT = Math.min(images.length, isDesktop ? 4 : 2);
-    const initial = images.slice(0, INIT);
-    const placeholders = Array.from({length: images.length - INIT}, () => images[0]);
-    const all = initial.concat(placeholders);
-
-    const pf = new St.PageFlip(bookEl, {
-      width: srcW, height: srcH, showCover: !isLandscape, usePortrait,
-      size: "stretch", maxShadowOpacity: 0.45, flippingTime: 700,
-      drawShadow: true, autoSize: true,
-      mobileScrollSupport: true, clickEventForward: true, showPageCorners: true
-    });
-    window.pageFlip = pf;
-    pf.loadFromImages(all);
-
-    buildThumbs(all);
-    curEl.textContent = "1";
-    totEl.textContent = String(images.length);
-    scrub.max = String(images.length);
-    loadingEl.style.display = "none";
-    document.title = title;
-
-    pf.on("flip", e => {
-      const n = e.data + 1;
-      curEl.textContent = n;
-      scrub.value = String(n);
-      highlightThumb(n);
-    });
-    btnPrev.onclick = () => pf.flipPrev();
-    btnNext.onclick = () => pf.flipNext();
-    btnThumbs.onclick = () => thumbs.classList.toggle("hide");
-    btnFS.onclick = toggleFullscreen;
-    scrub.oninput = e => pf.turnToPage(Number(e.target.value) - 1);
-    btnZoomIn.onclick  = () => zoomTo(0.15);
-    btnZoomOut.onclick = () => zoomTo(-0.15);
-    window.addEventListener("keydown",(ev)=>{ if(ev.key==="ArrowLeft")pf.flipPrev(); if(ev.key==="ArrowRight")pf.flipNext(); });
-    window.addEventListener("resize", ()=> sizeBookToViewport(srcW, srcH));
-
-    for (let i = INIT; i < images.length; i++) {
-      const im = await loadImage(images[i]);
-      pf.updatePage(i, im);
-      const t = thumbs.querySelectorAll(".thumb img")[i];
-      if (t) t.src = images[i];
-      await delay(4);
+      const c = document.createElement("canvas");
+      const ctx = c.getContext("2d", { alpha:false });
+      c.width = Math.floor(viewport.width);
+      c.height = Math.floor(viewport.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      const url = c.toDataURL("image/jpeg", 0.92);
+      c.width = c.height = 1;
+      return url;
+    } catch (e) {
+      console.warn("Render fail page", n, e);
+      return null;
     }
   }
 
-  function ensureDOM(){
-    if (document.getElementById("app")) return;
-    document.body.innerHTML = `
-      <div id="app">
-        <div id="bg"></div>
-        <div class="toolbar">
-          <button class="btn" id="btn-prev">⟵</button>
-          <button class="btn" id="btn-next">⟶</button>
-          <div class="split"></div>
-          <button class="btn" id="btn-thumbs">☰</button>
-          <div class="split"></div>
-          <a class="btn" id="btn-open" target="_blank" rel="noopener">Open PDF</a>
-          <a class="btn" id="btn-dl">Download</a>
-          <div class="split"></div>
-          <button class="btn" id="btn-fs">⤢</button>
-        </div>
-        <div class="viewer-wrap"><div id="book"></div></div>
-        <div class="chrome">
-          <div class="scrub"><input id="scrub" type="range" min="1" max="1" step="1" value="1" /></div>
-          <div class="counter"><b id="cur">1</b>/<span id="tot">?</span></div>
-          <div class="zoom">
-            <button class="btn" id="zoom-out">−</button>
-            <button class="btn" id="zoom-in">+</button>
-          </div>
-          <div id="renderProg"></div>
-        </div>
-        <div id="thumbs" class="thumbs hide"></div>
-        <div id="loading">Loading…</div>
-        <div id="watermark" class="hidden"></div>
-      </div>`;
+  async function boot() {
+    try {
+      // Fetch PDF as binary to avoid CORS mysteries
+      const ab = await fetch(pdfUrl, { credentials:"omit" }).then(r => {
+        if (!r.ok) throw new Error(`PDF fetch ${r.status}`);
+        return r.arrayBuffer();
+      });
+      pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
+      pageCount = pdfDoc.numPages;
+      rangeEl.max = String(pageCount);
+      totEl.textContent = String(pageCount);
+
+      // Initialize turn.js with placeholders
+      sizeBook();
+      bookEl.html(""); // clean
+      if (bookEl.data("turn")) bookEl.turn("destroy");
+      bookEl.turn({
+        width: $("#canvas").width(),
+        height: $("#canvas").height(),
+        autoCenter: true,
+        elevation: 50,
+        gradients: true,
+        display: "double" // spreads like Issuu; it will center on smaller screens automatically
+      });
+
+      // Update page counter on flip
+      bookEl.bind("turned", function(e, page){
+        curEl.textContent = String(page);
+        rangeEl.value = String(page);
+      });
+
+      // Create empty pages first (for quick UI)
+      for (let i=1;i<=pageCount;i++){
+        const d = document.createElement("div");
+        d.className = "page";
+        d.style.background = "#fff";
+        d.innerHTML = `<div style="display:grid;place-items:center;height:100%;color:#98a2b3;font:14px Inter">Rendering ${i}…</div>`;
+        bookEl.turn("addPage", $(d), i);
+      }
+
+      loading.classList.add("hide");
+
+      // Progressive render & replace
+      // Estimate target width for a single page (half the book width)
+      const singleCss = Math.floor(document.getElementById("canvas").clientWidth / 2);
+      for (let i=1;i<=pageCount;i++){
+        const url = await renderPageToUrl(pdfDoc, i, singleCss);
+        const pageDiv = bookEl.turn("view", i) ? bookEl.turn("pageElement", i) : null;
+        if (pageDiv && url){
+          pageDiv.innerHTML = `<img src="${url}" alt="Page ${i}" style="width:100%;height:100%;object-fit:cover;display:block">`;
+        }
+        // Small yield to keep UI responsive
+        await new Promise(r => setTimeout(r, 6));
+      }
+    } catch (e) {
+      console.error(e);
+      errorBox.textContent = `Viewer error: ${e.message || e}`;
+      errorBox.classList.remove("hide");
+      loading.classList.add("hide");
+    }
   }
-  function byId(id){ return document.getElementById(id); }
-  function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
-  function loadImage(url){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; }); }
-  function sizeBookToViewport(srcW, srcH){
-    const maxW = Math.min(window.innerWidth*0.96, 1400);
-    const maxH = Math.min(window.innerHeight-180, window.innerHeight*0.9);
-    const s = Math.min(maxW/srcW, maxH/srcH);
-    const el = byId("book");
-    el.style.width  = `${Math.floor(srcW*s)}px`;
-    el.style.height = `${Math.floor(srcH*s)}px`;
-  }
-  function zoomTo(delta){
-    const el = byId("book");
-    const cur = Number((el.dataset.zoom||"1"));
-    const next = Math.min(2, Math.max(1, cur + delta));
-    el.dataset.zoom = String(next);
-    el.style.transformOrigin = "center center";
-    el.style.transform = `scale(${next})`;
-  }
-  function buildThumbs(imgs){
-    const panel = byId("thumbs"); panel.innerHTML="";
-    imgs.forEach((src,i)=>{ const d=document.createElement("div"); d.className="thumb"; d.innerHTML=`<img src="${src}" alt="Page ${i+1}">`; d.onclick=()=>window.pageFlip?.turnToPage(i); panel.appendChild(d); });
-    highlightThumb(1);
-  }
-  function highlightThumb(n){
-    [...byId("thumbs").querySelectorAll(".thumb")].forEach((el,i)=>el.classList.toggle("active", i===n-1));
-  }
-  function applyBackground(spec, el){
-    try{
-      const [type, rest] = spec.split(":", 2);
-      if (type === "solid") el.style.background = rest || "#0f0f13";
-      else if (type === "gradient"){
-        const parts = (rest || "").split(",");
-        const kind = parts.shift() || "linear";
-        const [c1, c2] = parts.length >= 2 ? parts : ["#14151d", "#0f0f13"];
-        el.style.background = kind === "radial"
-          ? `radial-gradient(${c1}, ${c2})`
-          : `linear-gradient(135deg, ${c1}, ${c2})`;
-      } else if (type === "image"){
-        const url = decodeURIComponent(rest || "");
-        el.style.background = url ? `url("${url}") center/cover no-repeat fixed` : "#0f0f13";
-      } else el.style.background = "#0f0f13";
-    } catch { el.style.background = "#0f0f13"; }
-  }
+
+  boot();
 })();
