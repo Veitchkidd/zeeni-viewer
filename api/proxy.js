@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     res.setHeader("Content-Type", upstream.headers.get("content-type") || "application/pdf");
     if (dl) res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     return res.status(200).send(buf);
-  } catch {
+  } catch (e) {
     return res.status(500).send("Proxy error");
   }
 }
