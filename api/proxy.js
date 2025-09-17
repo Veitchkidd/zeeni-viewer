@@ -17,9 +17,7 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate");
     res.setHeader("Content-Type", upstream.headers.get("content-type") || "application/pdf");
-    if (dl) {
-      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-    }
+    if (dl) res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     return res.status(200).send(buf);
   } catch {
     return res.status(500).send("Proxy error");
